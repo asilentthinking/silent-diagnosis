@@ -860,56 +860,121 @@ function selectAnswer(index, btnEl, choice) {
   }, 400);
 }
 
-// ── Result Generation ───────────────────────────────────────────────
-async function generateResult() {
-  const summary = answers.map((ai, qi) => {
-    return `Q${qi+1}: ${questions[qi].choices[ai].scene}（${questions[qi].choices[ai].label}）`;
-  }).join('\n');
-
-  const domainLabel = { work: "仕事・働き方", relationship: "人間関係", self: "自分自身", love: "恋愛・パートナー" }[selectedDomain];
-
-  const prompt = `あなたはINFJ・内向型の人の気持ちに深く寄り添う、静かで詩的なカウンセラーです。
-
-以下は、ユーザーが選んだ5つの情景です：
-${summary}
-
-また、ユーザーが「今一番しんどい領域」として選んだのは「${domainLabel}」です。
-
-これらを踏まえ、以下の形式でJSONを返してください。
-
-{
-  "phase": "（フェーズの名前。詩的で印象的な2〜6文字）",
-  "phase_en": "（英語のサブタイトル。例：Quiet Transition）",
-  "message": "（そのフェーズにいるユーザーへのメッセージ。改行を含む3〜5文の温かく詩的な文章。「${domainLabel}」の文脈を自然に含む）",
-  "note_quote": "（あやさんのnoteの文体・世界観に合わせた、内向型の人に届く言葉。2〜3文。実際の引用ではなくオリジナル）"
-}
-
-JSONのみ返してください。前後に説明や\`\`\`は不要です。`;
-
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-
-    const data = await res.json();
-    const text = data.content.map(b => b.text || '').join('');
-    const clean = text.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(clean);
-    showResult(result);
-  } catch (e) {
-    showResult({
-      phase: "霧の中の灯り",
-      phase_en: "Light Within the Fog",
-      message: "今、あなたは霧の中にいる。\nでもその霧は、あなたを守るためのものかもしれない。\nすべてが見えなくてもいい。\n一歩だけ、前に。",
-      note_quote: "静かであることは、弱さじゃない。\n内側でちゃんと、深く考えている証拠。",
-    });
+// ── Static result map: phase × domain → {phase, phase_en, message, note_quote} ──
+const RESULT_MAP = {
+  fog: {
+    work: {
+      phase: "霧の中の足音",
+      phase_en: "Steps Within the Fog",
+      message: "今、仕事のことを考えると、\nどこに向かっているのか分からなくなる。\nそれでも毎日、歩いている。\nその「それでも」は、弱さじゃない。\n霧の中を歩ける人だけが、晴れた景色にたどり着く。",
+      note_quote: "「向いていない」と思っていたのは、\n合わない場所で戦っていただけかもしれない。\n内向型には、内向型の戦い方がある。"
+    },
+    relationship: {
+      phase: "霧の中の距離",
+      phase_en: "Distance in the Fog",
+      message: "誰かといるのに、どこか遠い気がする。\n言葉が届かない感じ、\n自分だけ違う場所にいる感じ。\nそれはあなたがおかしいのではなく、\nあなたの感度が高すぎるだけかもしれない。",
+      note_quote: "人間関係で消耗するのは、気を遣いすぎているからじゃない。\n自分を消して、相手に合わせすぎているから。"
+    },
+    self: {
+      phase: "霧の中の自分",
+      phase_en: "Finding Self in the Fog",
+      message: "自分が何者なのか、\n何がしたいのか、分からなくなっている。\n考えすぎて、疲れている。\nでも、その「考えすぎる」という性質が、\nいつかあなたの一番の武器になる。",
+      note_quote: "「どうせ私は」と思う声は、本当の自分の声じゃない。\nそれは、傷ついた自分が作り出した防衛反応。"
+    },
+    love: {
+      phase: "霧の中の温もり",
+      phase_en: "Warmth in the Fog",
+      message: "恋愛に向いていないと思っている。\n積極的に動けない自分が嫌になる。\nでも、内向型のままで\n安心できる関係を築いた人は、確かにいる。\nやり方が違っていただけ。",
+      note_quote: "外向型の恋愛を真似しなくていい。\nあなたのままで、あなたに合った人は必ずいる。"
+    }
+  },
+  storm: {
+    work: {
+      phase: "嵐の後の静けさ",
+      phase_en: "Stillness After the Storm",
+      message: "ひどく疲れた時期を、乗り越えてきた。\n消耗して、\n「このままでいいのか」と思った夜があった。\n今のあなたは、その嵐を越えた場所にいる。\n次の一歩を、焦らなくていい。",
+      note_quote: "頑張りすぎた自分を、責めないで。\n消耗したのは、弱かったからじゃない。\nそれだけ真剣に向き合っていた証拠。"
+    },
+    relationship: {
+      phase: "嵐の後の空",
+      phase_en: "Sky After the Storm",
+      message: "誰かに傷つけられた、\n言葉が届かなかった、\n分かってもらえなかった。\nそういう経験が積み重なって、今のあなたがいる。\nその傷は、あなたの深さの証明でもある。",
+      note_quote: "「嫌だ」と言えなかったのは、あなたが弱かったからじゃない。\n本音を扱う方法を、知らなかっただけ。"
+    },
+    self: {
+      phase: "嵐の後の光",
+      phase_en: "Light After the Storm",
+      message: "ずっと他人に合わせて生きてきた。\n「自分らしく」という言葉が、\n遠い世界の話に聞こえた時期があった。\nでも今、何かが変わり始めている。\nその変化を、信じていい。",
+      note_quote: "自分の人生の主導権を取り戻すのに、遅すぎることはない。\n小さな「これは嫌だ」から、始められる。"
+    },
+    love: {
+      phase: "嵐の後の凪",
+      phase_en: "Calm After the Storm",
+      message: "うまくいかない恋愛を、繰り返してきた。\n自分を消して合わせて、疲れ果てた。\nでも今、その嵐は過ぎた。\n次は違うやり方ができる。\nあなたのままで、安心できる関係が待っている。",
+      note_quote: "恋愛が疲れるのは、自分を削って相手に合わせているから。\nあなたが安心できる人と、あなたのままでいられる関係を選んでいい。"
+    }
+  },
+  dawn: {
+    work: {
+      phase: "夜明け前の準備",
+      phase_en: "Before the Dawn",
+      message: "変わりたいと思っている。\n今の働き方を、このままにしたくない。\nでもまだ、どう動けばいいか分からない。\n夜明け前は、一番暗い。\nでも光は、もうそこまで来ている。",
+      note_quote: "内向型のままで、働き方は変えられる。\n声が大きくなくても、\n静かに積み上げてきた力は、本物。"
+    },
+    relationship: {
+      phase: "夜明け前の問い",
+      phase_en: "Questions Before Dawn",
+      message: "このままの人間関係でいいのか、\nずっと自分を抑えて合わせていくのか。\nその問いが、頭から離れない。\nその問いが生まれたこと自体が、\n変化の始まりのサインかもしれない。",
+      note_quote: "「嫌だ」という感覚は、あなたの本音が生きている証拠。\nその声を、もう少しだけ信じてみて。"
+    },
+    self: {
+      phase: "夜明け前の目覚め",
+      phase_en: "Awakening Before Dawn",
+      message: "他人軸で生きてきたことに、\n気づき始めている。\nでもどう変えればいいか、\nまだ分からない。\nその「気づき」だけで、十分すごいことだ。",
+      note_quote: "自分軸で生きるのは、わがままになることじゃない。\n自分の感覚を、信頼することから始まる。"
+    },
+    love: {
+      phase: "夜明け前の恋",
+      phase_en: "Love Before Dawn",
+      message: "変わりたい、でも動けない。\n内向型のまま恋愛していいのか、\nまだ自信が持てない。\nでも、あなたのその静かさを\nちゃんと受け取れる人が、必ずいる。",
+      note_quote: "積極的になれないのは、欠点じゃない。\n慎重に、深く人を見られるのは、\n内向型だからこそ持っている力。"
+    }
+  },
+  still: {
+    work: {
+      phase: "水面の反射",
+      phase_en: "Reflection on Still Water",
+      message: "今の仕事に、大きな不満はない。\nでも、何かが足りない気がしている。\n静かな水面の下で、\n何かがゆっくり動き始めているかもしれない。\nその感覚を、大切にしていい。",
+      note_quote: "「このままでいいのかな」という問いは、現状への不満じゃなく、\nもっと自分らしく生きたいという内側からのサインかもしれない。"
+    },
+    relationship: {
+      phase: "水面の静けさ",
+      phase_en: "Quiet Surface",
+      message: "人間関係は、今は穏やか。\nでも深いところで、\n本当に分かり合えている感覚が薄い。\n静かな人には、静かな人の縁がある。\n波長の合う人は、必ず存在する。",
+      note_quote: "無理に社交的にならなくていい。\n静かに、深く関われる人とゆっくり関係を築いていけばいい。"
+    },
+    self: {
+      phase: "水面の先へ",
+      phase_en: "Beyond the Still Water",
+      message: "今のあなたは、静かに満たされている。\nでも心の芯に、小さな火が灯っている。\nそれは、ワクワクの種かもしれない。\nその火を、消さないで。",
+      note_quote: "派手に燃え上がらなくていい。\n心の芯に、ゆらゆらと灯り続ける火。\nそれがあなたの、本当の情熱。"
+    },
+    love: {
+      phase: "水面の温もり",
+      phase_en: "Warmth on Still Water",
+      message: "今のパートナーシップは、穏やか。\n急かされない、焦らせられない。\n内向型にとって、それは最高の環境。\nその静けさを、当たり前にしていい。\n安心できる関係は、あなたに似合っている。",
+      note_quote: "盛り上がらなくていい。\n話さなくても気まずくならない関係が、\n内向型には一番合っている。"
+    }
   }
+};
+
+// ── Result Generation（APIなし・静的マップ版）─────────────────────
+function generateResult() {
+  // Show loading briefly for UX
+  setTimeout(() => {
+    const result = (RESULT_MAP[detectedPhase] || RESULT_MAP.fog)[selectedDomain] || RESULT_MAP.fog.self;
+    showResult(result);
+  }, 1200);
 }
 
 function showResult(result) {
