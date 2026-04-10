@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>静かな自己診断 — 今の自分はどこにいる？</title>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600&family=Zen+Kaku+Gothic+New:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1714;
+    --paper: #f5f0e8;
+    --mist: #c9bfb0;
+    --dawn: #e8ddd0;
+    --moss: #6b7c5e;
+    --dusk: #7a6e8a;
+    --rust: #9c6b4e;
+    --cream: #faf6ef;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grain texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.4;
+  }
+
+  /* Watercolor circles in bg */
+  .bg-circle {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .bg-circle-1 {
+    width: 500px; height: 500px;
+    top: -150px; right: -100px;
+    background: radial-gradient(circle, rgba(122,110,138,0.08) 0%, transparent 70%);
+  }
+  .bg-circle-2 {
+    width: 400px; height: 400px;
+    bottom: -100px; left: -80px;
+    background: radial-gradient(circle, rgba(107,124,94,0.07) 0%, transparent 70%);
+  }
+  .bg-circle-3 {
+    width: 300px; height: 300px;
+    top: 40%; left: 30%;
+    background: radial-gradient(circle, rgba(156,107,78,0.05) 0%, transparent 70%);
+  }
+
+  /* Screens */
+  .screen {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+  .screen.active {
+    display: flex;
+    opacity: 1;
+  }
+  .screen.fade-in { animation: fadeIn 1s ease forwards; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── TOP SCREEN ─── */
+  #screen-top {
+    text-align: center;
+    gap: 0;
+  }
+  .top-label {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--mist);
+    text-transform: uppercase;
+    margin-bottom: 32px;
+    animation: fadeIn 1.2s ease 0.2s both;
+  }
+  .top-title {
+    font-family: 'Shippori Mincho', serif;
+    font-size: clamp(28px, 6vw, 52px);
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.05em;
+    color: var(--ink);
+    margin-bottom: 24px;
+    animation: fadeIn 1.2s ease 0.4s both;
+  }
+  .top-subtitle {
+    font-size: 13px;
+    color: var(--mist);
+    letter-spacing: 0.12em;
+    line-height: 2;
+    margin-bottom: 56px;
+    animation: fadeIn 1.2s ease 0.6s both;
+  }
+  .btn-start {
+    display: inline-block;
+    padding: 14px 48px;
+    border: 1px solid var(--ink);
+    background: transparent;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.25em;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+    animation: fadeIn 1.2s ease 0.8s both;
+  }
+  .btn-start::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--ink);
+    transform: translateX(-100%);
+    transition: transform 0.4s ease;
+    z-index: -1;
+  }
+  .btn-start:hover { color: var(--cream); }
+  .btn-start:hover::before { transform: translateX(0); }
+
+  .top-decoration {
+    margin: 48px 0 32px;
+    animation: fadeIn 1.2s ease 1s both;
+  }
+  .top-decoration svg { opacity: 0.3; }
+
+  /* ─── QUESTION SCREEN ─── */
+  #screen-question { gap: 0; }
+
+  .progress-bar-wrap {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--dawn);
+    z-index: 10;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--ink);
+    transition: width 0.6s ease;
+  }
+
+  .q-counter {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--mist);
+    margin-bottom: 40px;
+    text-align: center;
+  }
+  .q-text {
+    font-family: 'Shippori Mincho', serif;
+    font-size: clamp(18px, 4vw, 28px);
+    font-weight: 400;
+    line-height: 1.8;
+    letter-spacing: 0.06em;
+    text-align: center;
+    color: var(--ink);
+    margin-bottom: 16px;
+    max-width: 600px;
+  }
+  .q-hint {
+    font-size: 11px;
+    color: var(--mist);
+    letter-spacing: 0.1em;
+    text-align: center;
+    margin-bottom: 52px;
+  }
+
+  .choices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    max-width: 640px;
+    width: 100%;
+  }
+  @media (max-width: 500px) {
+    .choices { grid-template-columns: 1fr; }
+  }
+
+  .choice-btn {
+    padding: 20px 24px;
+    background: var(--cream);
+    border: 1px solid var(--dawn);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.35s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .choice-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--ink);
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+  .choice-btn:hover { border-color: var(--ink); }
+  .choice-btn:hover::after { opacity: 0.04; }
+  .choice-btn.selected {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  .choice-btn.selected .choice-scene,
+  .choice-btn.selected .choice-label { color: var(--cream); }
+
+  .choice-scene-art {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.13;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+  }
+  .choice-btn:hover .choice-scene-art { opacity: 0.18; }
+  .choice-btn.selected .choice-scene-art { opacity: 0.22; filter: invert(1); }
+
+  .choice-scene {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+    display: block;
+    line-height: 1.4;
+  }
+  .choice-label {
+    font-size: 11px;
+    color: var(--mist);
+    letter-spacing: 0.08em;
+    display: block;
+    line-height: 1.6;
+  }
+
+  /* ─── LOADING ─── */
+  #screen-loading {
+    text-align: center;
+    gap: 24px;
+  }
+  .loading-text {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 16px;
+    letter-spacing: 0.15em;
+    color: var(--mist);
+    animation: pulse 2s ease infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+  .loading-dots {
+    display: flex; gap: 8px; justify-content: center;
+  }
+  .dot {
+    width: 6px; height: 6px;
+    background: var(--mist);
+    border-radius: 50%;
+    animation: dotPulse 1.4s ease infinite;
+  }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dotPulse {
+    0%, 60%, 100% { transform: scale(1); opacity: 0.3; }
+    30% { transform: scale(1.4); opacity: 1; }
+  }
+
+  /* ─── RESULT SCREEN ─── */
+  #screen-result { gap: 0; }
+
+  .result-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--mist);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .result-phase {
+    font-family: 'Shippori Mincho', serif;
+    font-size: clamp(26px, 5vw, 44px);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .result-phase-en {
+    font-size: 11px;
+    color: var(--mist);
+    letter-spacing: 0.25em;
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .result-divider {
+    width: 40px;
+    height: 1px;
+    background: var(--mist);
+    margin: 0 auto 48px;
+  }
+
+  .result-message {
+    font-family: 'Shippori Mincho', serif;
+    font-size: clamp(15px, 2.5vw, 19px);
+    font-weight: 400;
+    line-height: 2.2;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+    text-align: center;
+    max-width: 560px;
+    margin-bottom: 48px;
+    white-space: pre-wrap;
+  }
+
+  .result-note-quote {
+    border-left: 2px solid var(--mist);
+    padding: 16px 24px;
+    max-width: 480px;
+    width: 100%;
+    margin-bottom: 56px;
+    background: rgba(255,255,255,0.5);
+  }
+  .result-note-quote p {
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 2;
+    letter-spacing: 0.06em;
+    opacity: 0.8;
+    white-space: pre-wrap;
+  }
+  .result-note-quote cite {
+    display: block;
+    font-size: 10px;
+    color: var(--mist);
+    letter-spacing: 0.15em;
+    margin-top: 12px;
+  }
+
+  .result-note-link {
+    display: inline-block;
+    margin-bottom: 40px;
+    padding: 13px 36px;
+    border: 1px solid var(--ink);
+    background: transparent;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--ink);
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .result-note-link::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--ink);
+    transform: translateX(-100%);
+    transition: transform 0.4s ease;
+    z-index: -1;
+  }
+  .result-note-link:hover { color: var(--cream); }
+  .result-note-link:hover::before { transform: translateX(0); }
+
+  .btn-retry {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--mist);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px 0;
+    border-bottom: 1px solid transparent;
+    transition: all 0.3s;
+    margin-top: 8px;
+  }
+  .btn-retry:hover {
+    color: var(--ink);
+    border-bottom-color: var(--ink);
+  }
+
+  /* ─── DOMAIN QUESTION SCREEN ─── */
+  #screen-domain { gap: 0; text-align: center; }
+  .domain-title {
+    font-family: 'Shippori Mincho', serif;
+    font-size: clamp(18px, 4vw, 26px);
+    font-weight: 400;
+    line-height: 1.8;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+    margin-bottom: 12px;
+    max-width: 500px;
+  }
+  .domain-hint {
+    font-size: 11px;
+    color: var(--mist);
+    letter-spacing: 0.1em;
+    margin-bottom: 48px;
+  }
+  .domain-choices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    max-width: 520px;
+    width: 100%;
+  }
+  @media (max-width: 500px) {
+    .domain-choices { grid-template-columns: 1fr; }
+  }
+  .domain-btn {
+    padding: 18px 20px;
+    background: var(--cream);
+    border: 1px solid var(--dawn);
+    cursor: pointer;
+    font-family: 'Shippori Mincho', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: 0.08em;
+    transition: all 0.35s ease;
+  }
+  .domain-btn:hover {
+    background: var(--ink);
+    color: var(--cream);
+    border-color: var(--ink);
+  }
+
+  /* Transition helper */
+  .fade-out {
+    animation: fadeOut 0.5s ease forwards;
+  }
+  @keyframes fadeOut {
+    to { opacity: 0; transform: translateY(-10px); }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-circle bg-circle-1"></div>
+<div class="bg-circle bg-circle-2"></div>
+<div class="bg-circle bg-circle-3"></div>
+
+<!-- TOP -->
+<div class="screen active fade-in" id="screen-top">
+  <p class="top-label">A Silent Thinking — Self Diagnosis</p>
+  <h1 class="top-title">今の自分は<br>どこにいる？</h1>
+  <p class="top-subtitle">情景を選んで、今のあなたに届く言葉を受け取る<br>静かな5分間の自己診断</p>
+  <div class="top-decoration">
+    <svg width="80" height="40" viewBox="0 0 80 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0 20 Q20 5 40 20 Q60 35 80 20" stroke="#1a1714" stroke-width="0.8" fill="none"/>
+      <path d="M0 20 Q20 35 40 20 Q60 5 80 20" stroke="#1a1714" stroke-width="0.4" fill="none" opacity="0.4"/>
+      <circle cx="40" cy="20" r="2" fill="#1a1714" opacity="0.4"/>
+    </svg>
+  </div>
+  <button class="btn-start" onclick="startDiagnosis()">はじめる</button>
+</div>
+
+<!-- QUESTION -->
+<div class="screen" id="screen-question">
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progress-bar"></div>
+  </div>
+  <p class="q-counter" id="q-counter">Q1 / 5</p>
+  <p class="q-text" id="q-text"></p>
+  <p class="q-hint">今の感覚に近いものを選んでください</p>
+  <div class="choices" id="choices"></div>
+</div>
+
+<!-- DOMAIN -->
+<div class="screen" id="screen-domain">
+  <p class="domain-title">今、一番しんどいのは<br>どのあたりですか？</p>
+  <p class="domain-hint">近いものをひとつ選んでください</p>
+  <div class="domain-choices">
+    <button class="domain-btn" onclick="selectDomain('work')">仕事・働き方</button>
+    <button class="domain-btn" onclick="selectDomain('relationship')">人間関係</button>
+    <button class="domain-btn" onclick="selectDomain('self')">自分自身</button>
+    <button class="domain-btn" onclick="selectDomain('love')">恋愛・パートナー</button>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="screen" id="screen-loading">
+  <p class="loading-text">あなたの言葉を探しています</p>
+  <div class="loading-dots">
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div class="screen" id="screen-result">
+  <p class="result-eyebrow">あなたは今</p>
+  <h2 class="result-phase" id="result-phase"></h2>
+  <p class="result-phase-en" id="result-phase-en"></p>
+  <div class="result-divider"></div>
+  <p class="result-message" id="result-message"></p>
+  <div class="result-note-quote">
+    <p id="result-quote"></p>
+    <cite id="result-cite">— あや｜INFJ内向型の生き方研究所</cite>
+  </div>
+  <a id="result-note-link" class="result-note-link" href="#" target="_blank" rel="noopener">このnoteを読んでみる →</a>
+  <button class="btn-retry" onclick="retry()">もう一度やってみる</button>
+</div>
+
+<script>
+// ── Note article mapping: phase × domain → {title, url} ──────────
+const NOTE_MAP = {
+  // phase keys: fog / storm / dawn / still
+  // domain keys: work / relationship / self / love
+  fog: {
+    work:         { title: "内向的で社会に出るのが怖かった話", url: "https://note.com/asilentthinking/n/n6ce474842d9f" },
+    relationship: { title: "「嫌だ」と言えなかった私の話", url: "https://note.com/asilentthinking/n/ndf02a3baede0" },
+    self:         { title: "考えすぎる性格を味方にする方法", url: "https://note.com/asilentthinking/n/n65d92f1e5b63" },
+    love:         { title: "内向型でも幸せな恋愛と結婚ができた話", url: "https://note.com/asilentthinking/n/n2884dfda5013" },
+  },
+  storm: {
+    work:         { title: "内向的で社会に出るのが怖かった話", url: "https://note.com/asilentthinking/n/n6ce474842d9f" },
+    relationship: { title: "「嫌だ」と言えなかった私の話", url: "https://note.com/asilentthinking/n/ndf02a3baede0" },
+    self:         { title: "自分の人生の主導権を取り戻すまで", url: "https://note.com/asilentthinking/n/n8adf67e41975" },
+    love:         { title: "内向型でも幸せな恋愛と結婚ができた話", url: "https://note.com/asilentthinking/n/n2884dfda5013" },
+  },
+  dawn: {
+    work:         { title: "INFJ×研究×内向型、静かな人の適性", url: "https://note.com/asilentthinking/n/na05b95870dc1" },
+    relationship: { title: "「嫌だ」と言えなかった私の話", url: "https://note.com/asilentthinking/n/ndf02a3baede0" },
+    self:         { title: "自分の人生の主導権を取り戻すまで", url: "https://note.com/asilentthinking/n/n8adf67e41975" },
+    love:         { title: "内向型でも幸せな恋愛と結婚ができた話", url: "https://note.com/asilentthinking/n/n2884dfda5013" },
+  },
+  still: {
+    work:         { title: "フォロワー25人から海外で0→1を達成した話", url: "https://note.com/asilentthinking/n/n56caad04bd8b" },
+    relationship: { title: "静かな人は、本と出会うと強くなる", url: "https://note.com/asilentthinking/n/n19bb67254826" },
+    self:         { title: "私のわくわくする瞬間", url: "https://note.com/asilentthinking/n/n258422f3ef46" },
+    love:         { title: "内向型でも幸せな恋愛と結婚ができた話", url: "https://note.com/asilentthinking/n/n2884dfda5013" },
+  },
+};
+
+// ── Scene SVG illustrations ────────────────────────────────────────
+const SCENE_SVG = {
+  "霧の中": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="40" cy="38" rx="36" ry="10" fill="#1a1714" opacity="0.3"/>
+    <line x1="8" y1="28" x2="72" y2="28" stroke="#1a1714" stroke-width="1.2" opacity="0.5"/>
+    <line x1="4" y1="34" x2="76" y2="34" stroke="#1a1714" stroke-width="1" opacity="0.4"/>
+    <line x1="10" y1="22" x2="70" y2="22" stroke="#1a1714" stroke-width="0.8" opacity="0.3"/>
+    <line x1="16" y1="16" x2="64" y2="16" stroke="#1a1714" stroke-width="0.6" opacity="0.2"/>
+    <circle cx="40" cy="30" r="4" fill="#1a1714" opacity="0.6"/>
+    <line x1="40" y1="38" x2="40" y2="52" stroke="#1a1714" stroke-width="1" opacity="0.4"/>
+  </svg>`,
+  "嵐の後": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M10 20 Q20 8 35 14 Q38 4 52 10 Q62 2 72 14 Q80 12 78 22 Q76 28 68 26 L14 26 Q6 26 10 20Z" fill="#1a1714" opacity="0.35"/>
+    <line x1="28" y1="30" x2="24" y2="44" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <line x1="38" y1="30" x2="35" y2="48" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <line x1="50" y1="30" x2="46" y2="42" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <path d="M8 50 Q20 46 32 50 Q44 54 56 50 Q68 46 76 50" stroke="#1a1714" stroke-width="1" fill="none" opacity="0.4"/>
+  </svg>`,
+  "夜明け前": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0 50 L80 50 L80 60 L0 60Z" fill="#1a1714" opacity="0.2"/>
+    <path d="M16 50 Q40 20 64 50" fill="#1a1714" opacity="0.15"/>
+    <line x1="40" y1="12" x2="40" y2="4" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <line x1="28" y1="16" x2="24" y2="10" stroke="#1a1714" stroke-width="1" opacity="0.4"/>
+    <line x1="52" y1="16" x2="56" y2="10" stroke="#1a1714" stroke-width="1" opacity="0.4"/>
+    <line x1="22" y1="24" x2="16" y2="20" stroke="#1a1714" stroke-width="0.8" opacity="0.3"/>
+    <line x1="58" y1="24" x2="64" y2="20" stroke="#1a1714" stroke-width="0.8" opacity="0.3"/>
+    <circle cx="40" cy="18" r="6" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+  </svg>`,
+  "静かな水面": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <line x1="4" y1="30" x2="76" y2="30" stroke="#1a1714" stroke-width="0.8" opacity="0.6"/>
+    <line x1="8" y1="36" x2="72" y2="36" stroke="#1a1714" stroke-width="0.6" opacity="0.4"/>
+    <line x1="12" y1="42" x2="68" y2="42" stroke="#1a1714" stroke-width="0.5" opacity="0.3"/>
+    <ellipse cx="40" cy="30" rx="8" ry="2" fill="none" stroke="#1a1714" stroke-width="0.6" opacity="0.4"/>
+    <ellipse cx="40" cy="30" rx="14" ry="3.5" fill="none" stroke="#1a1714" stroke-width="0.4" opacity="0.25"/>
+    <line x1="40" y1="10" x2="40" y2="26" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <circle cx="40" cy="8" r="3" fill="#1a1714" opacity="0.4"/>
+  </svg>`,
+  "川の向こう岸": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0 35 Q20 30 40 35 Q60 40 80 35 L80 60 L0 60Z" fill="#1a1714" opacity="0.15"/>
+    <line x1="4" y1="35" x2="76" y2="35" stroke="#1a1714" stroke-width="0.8" opacity="0.5"/>
+    <line x1="4" y1="40" x2="76" y2="40" stroke="#1a1714" stroke-width="0.6" opacity="0.35"/>
+    <rect x="52" y="16" width="4" height="18" fill="#1a1714" opacity="0.4"/>
+    <rect x="60" y="20" width="4" height="14" fill="#1a1714" opacity="0.35"/>
+    <rect x="68" y="18" width="4" height="16" fill="#1a1714" opacity="0.3"/>
+    <circle cx="14" cy="28" r="3" fill="#1a1714" opacity="0.5"/>
+  </svg>`,
+  "借り物の衣装": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M28 10 L52 10 L58 22 L48 22 L48 52 L32 52 L32 22 L22 22 Z" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <path d="M28 10 L22 22" stroke="#1a1714" stroke-width="1.2" opacity="0.6"/>
+    <path d="M52 10 L58 22" stroke="#1a1714" stroke-width="1.2" opacity="0.6"/>
+    <line x1="32" y1="30" x2="48" y2="30" stroke="#1a1714" stroke-width="0.6" opacity="0.3" stroke-dasharray="3,3"/>
+    <line x1="32" y1="38" x2="48" y2="38" stroke="#1a1714" stroke-width="0.6" opacity="0.3" stroke-dasharray="3,3"/>
+  </svg>`,
+  "手のひらの砂": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M24 20 Q28 18 32 20 L34 38 Q36 44 40 46 Q44 44 46 38 L48 20 Q52 18 56 20" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <line x1="34" y1="30" x2="30" y2="52" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <line x1="38" y1="34" x2="36" y2="54" stroke="#1a1714" stroke-width="0.6" opacity="0.35"/>
+    <line x1="42" y1="34" x2="44" y2="54" stroke="#1a1714" stroke-width="0.6" opacity="0.35"/>
+    <line x1="46" y1="30" x2="50" y2="52" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <circle cx="30" cy="56" r="1.5" fill="#1a1714" opacity="0.4"/>
+    <circle cx="36" cy="57" r="1" fill="#1a1714" opacity="0.3"/>
+    <circle cx="44" cy="57" r="1.2" fill="#1a1714" opacity="0.35"/>
+    <circle cx="50" cy="55" r="1.5" fill="#1a1714" opacity="0.4"/>
+  </svg>`,
+  "窓ガラス越しの光": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="20" y="10" width="40" height="42" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <line x1="40" y1="10" x2="40" y2="52" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <line x1="20" y1="31" x2="60" y2="31" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <line x1="50" y1="18" x2="66" y2="10" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <line x1="52" y1="24" x2="70" y2="20" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <line x1="52" y1="30" x2="70" y2="30" stroke="#1a1714" stroke-width="0.6" opacity="0.3"/>
+  </svg>`,
+  "しまい込んだ引き出し": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="12" y="8" width="56" height="14" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <rect x="12" y="24" width="56" height="14" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.4"/>
+    <rect x="12" y="40" width="56" height="14" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.35"/>
+    <circle cx="40" cy="15" r="2" fill="#1a1714" opacity="0.5"/>
+    <circle cx="40" cy="31" r="2" fill="#1a1714" opacity="0.4"/>
+    <circle cx="40" cy="47" r="2" fill="#1a1714" opacity="0.35"/>
+  </svg>`,
+  "満杯の器": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M22 18 L58 18 L52 52 L28 52 Z" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <path d="M22 18 L58 18 L56 26 L24 26 Z" fill="#1a1714" opacity="0.2"/>
+    <path d="M23 22 L57 22 L55 30 L25 30 Z" fill="#1a1714" opacity="0.15"/>
+    <path d="M30 10 Q36 6 40 10 Q44 14 50 8" stroke="#1a1714" stroke-width="0.8" fill="none" opacity="0.5"/>
+    <path d="M34 6 Q38 2 42 6" stroke="#1a1714" stroke-width="0.6" fill="none" opacity="0.4"/>
+  </svg>`,
+  "空っぽの器": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M22 18 L58 18 L52 52 L28 52 Z" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <line x1="30" y1="35" x2="50" y2="35" stroke="#1a1714" stroke-width="0.6" opacity="0.2" stroke-dasharray="4,4"/>
+  </svg>`,
+  "冷えてきたお茶": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="26" y="22" width="28" height="28" rx="2" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <line x1="54" y1="34" x2="62" y2="34" stroke="#1a1714" stroke-width="1.2" opacity="0.4"/>
+    <path d="M30 14 Q32 10 34 14" stroke="#1a1714" stroke-width="0.8" fill="none" opacity="0.3"/>
+    <path d="M38 12 Q40 8 42 12" stroke="#1a1714" stroke-width="0.8" fill="none" opacity="0.25"/>
+    <path d="M46 14 Q48 10 50 14" stroke="#1a1714" stroke-width="0.8" fill="none" opacity="0.2"/>
+    <line x1="30" y1="36" x2="50" y2="36" stroke="#1a1714" stroke-width="0.6" opacity="0.25"/>
+  </svg>`,
+  "遠くの灯台": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="36" y="20" width="8" height="28" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <rect x="34" y="14" width="12" height="8" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <circle cx="40" cy="18" r="2.5" fill="#1a1714" opacity="0.5"/>
+    <line x1="40" y1="14" x2="28" y2="8" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <line x1="40" y1="14" x2="18" y2="10" stroke="#1a1714" stroke-width="0.6" opacity="0.3"/>
+    <line x1="40" y1="16" x2="14" y2="18" stroke="#1a1714" stroke-width="0.5" opacity="0.2"/>
+    <line x1="4" y1="50" x2="76" y2="50" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <path d="M4 50 Q20 46 36 50" stroke="#1a1714" stroke-width="0.6" fill="none" opacity="0.3"/>
+  </svg>`,
+  "種のまま": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="40" cy="36" rx="10" ry="12" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <path d="M36 28 Q40 22 44 28" stroke="#1a1714" stroke-width="0.8" fill="none" opacity="0.4"/>
+    <line x1="40" y1="48" x2="40" y2="56" stroke="#1a1714" stroke-width="0.8" opacity="0.3"/>
+    <path d="M34 54 Q36 50 40 56 Q44 50 46 54" stroke="#1a1714" stroke-width="0.6" fill="none" opacity="0.25"/>
+    <line x1="20" y1="52" x2="60" y2="52" stroke="#1a1714" stroke-width="0.6" opacity="0.3"/>
+  </svg>`,
+  "ゆっくり溶ける氷": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M28 14 L52 14 L54 38 Q50 44 40 46 Q30 44 26 38 Z" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <path d="M30 38 Q34 46 36 52" stroke="#1a1714" stroke-width="0.8" fill="none" opacity="0.4"/>
+    <path d="M50 34 Q52 42 50 50" stroke="#1a1714" stroke-width="0.8" fill="none" opacity="0.4"/>
+    <circle cx="34" cy="54" r="2" fill="#1a1714" opacity="0.25"/>
+    <circle cx="50" cy="52" r="2.5" fill="#1a1714" opacity="0.2"/>
+  </svg>`,
+  "開きかけた窓": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="16" y="10" width="48" height="44" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.4"/>
+    <line x1="40" y1="10" x2="40" y2="54" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <line x1="16" y1="32" x2="64" y2="32" stroke="#1a1714" stroke-width="0.8" opacity="0.3"/>
+    <path d="M40 10 L54 6 L54 32 L40 32Z" fill="#1a1714" opacity="0.08"/>
+    <line x1="40" y1="10" x2="54" y2="6" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <line x1="54" y1="6" x2="54" y2="32" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+  </svg>`,
+  "静かな部屋": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="10" y="16" width="60" height="38" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.4"/>
+    <line x1="10" y1="16" x2="40" y2="4" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <line x1="70" y1="16" x2="40" y2="4" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <rect x="28" y="34" width="24" height="20" fill="none" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <rect x="46" y="22" width="14" height="10" fill="none" stroke="#1a1714" stroke-width="0.6" opacity="0.35"/>
+  </svg>`,
+  "地図": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M10 12 L30 8 L50 14 L70 10 L70 50 L50 54 L30 48 L10 52 Z" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <path d="M30 8 L30 48" stroke="#1a1714" stroke-width="0.6" opacity="0.35"/>
+    <path d="M50 14 L50 54" stroke="#1a1714" stroke-width="0.6" opacity="0.35"/>
+    <path d="M20 28 Q35 22 45 32 Q55 38 65 30" stroke="#1a1714" stroke-width="1" fill="none" opacity="0.5"/>
+    <circle cx="45" cy="32" r="2.5" fill="#1a1714" opacity="0.5"/>
+  </svg>`,
+  "誰かの声": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M14 14 Q14 8 20 8 L56 8 Q62 8 62 14 L62 34 Q62 40 56 40 L44 40 L36 52 L36 40 L20 40 Q14 40 14 34 Z" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <line x1="26" y1="22" x2="50" y2="22" stroke="#1a1714" stroke-width="0.8" opacity="0.35"/>
+    <line x1="26" y1="30" x2="44" y2="30" stroke="#1a1714" stroke-width="0.8" opacity="0.3"/>
+  </svg>`,
+  "朝の光": `<svg width="80" height="60" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <line x1="4" y1="40" x2="76" y2="40" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <path d="M18 40 Q40 10 62 40" fill="none" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <line x1="40" y1="38" x2="40" y2="28" stroke="#1a1714" stroke-width="1" opacity="0.5"/>
+    <line x1="30" y1="36" x2="24" y2="28" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <line x1="50" y1="36" x2="56" y2="28" stroke="#1a1714" stroke-width="0.8" opacity="0.4"/>
+    <line x1="22" y1="32" x2="14" y2="26" stroke="#1a1714" stroke-width="0.6" opacity="0.3"/>
+    <line x1="58" y1="32" x2="66" y2="26" stroke="#1a1714" stroke-width="0.6" opacity="0.3"/>
+    <line x1="16" y1="24" x2="8" y2="20" stroke="#1a1714" stroke-width="0.5" opacity="0.25"/>
+    <line x1="64" y1="24" x2="72" y2="20" stroke="#1a1714" stroke-width="0.5" opacity="0.25"/>
+  </svg>`,
+};
+
+// ── Questions ──────────────────────────────────────────────────────
+const questions = [
+  {
+    text: "今の自分をひとつの情景に例えるなら？",
+    choices: [
+      { scene: "霧の中", label: "何も見えない。でも、歩いている", phase: "fog" },
+      { scene: "嵐の後", label: "ひどく疲れた。でも、空が晴れてきた", phase: "storm" },
+      { scene: "夜明け前", label: "まだ暗い。でも、光の気配がある", phase: "dawn" },
+      { scene: "静かな水面", label: "波立っていない。だけど、少し空虚", phase: "still" }
+    ]
+  },
+  {
+    text: "誰かといるとき、どんな感覚に近い？",
+    choices: [
+      { scene: "川の向こう岸", label: "すぐそこにいるのに、遠い気がする" },
+      { scene: "借り物の衣装", label: "違和感がある。本当の自分じゃない" },
+      { scene: "手のひらの砂", label: "すり抜けていく。つかめない" },
+      { scene: "窓ガラス越しの光", label: "届きそうで、届かない温かさ" }
+    ]
+  },
+  {
+    text: "自分の感情は今、どんな状態？",
+    choices: [
+      { scene: "しまい込んだ引き出し", label: "たくさんある。でも開けていない" },
+      { scene: "満杯の器", label: "これ以上は入らない。溢れそう" },
+      { scene: "空っぽの器", label: "何も残っていない。からっぽ" },
+      { scene: "冷えてきたお茶", label: "温かさの記憶だけが残っている" }
+    ]
+  },
+  {
+    text: "「変わりたい」という気持ちは？",
+    choices: [
+      { scene: "遠くの灯台", label: "見えている。でもたどり着けない" },
+      { scene: "種のまま", label: "いつか芽吹くはず。まだ眠っている" },
+      { scene: "ゆっくり溶ける氷", label: "少しずつ、確かに変わっている" },
+      { scene: "開きかけた窓", label: "もう少し。あとほんの少しだけ" }
+    ]
+  },
+  {
+    text: "今の自分に必要なものは？",
+    choices: [
+      { scene: "静かな部屋", label: "誰にも邪魔されない、ひとりの時間" },
+      { scene: "地図", label: "どこに向かえばいいか、知りたい" },
+      { scene: "誰かの声", label: "「大丈夫」と言ってくれる人の言葉" },
+      { scene: "朝の光", label: "新しい一日が来ることへの、信頼" }
+    ]
+  }
+];
+
+// ── State ──────────────────────────────────────────────────────────
+let currentQ = 0;
+let answers = [];
+let detectedPhase = "fog"; // determined from Q1 answer
+let selectedDomain = "self";
+
+// ── Navigation ─────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => {
+    s.classList.remove('active', 'fade-in');
+    s.style.display = 'none';
+  });
+  const el = document.getElementById(id);
+  el.style.display = 'flex';
+  requestAnimationFrame(() => {
+    el.classList.add('active', 'fade-in');
+  });
+}
+
+function startDiagnosis() {
+  currentQ = 0;
+  answers = [];
+  detectedPhase = "fog";
+  selectedDomain = "self";
+  showScreen('screen-question');
+  renderQuestion();
+}
+
+function retry() {
+  startDiagnosis();
+}
+
+// ── Domain selection → triggers loading & AI ──────────────────────
+function selectDomain(domain) {
+  selectedDomain = domain;
+  showScreen('screen-loading');
+  generateResult();
+}
+
+// ── Question Rendering ─────────────────────────────────────────────
+function renderQuestion() {
+  const q = questions[currentQ];
+  document.getElementById('q-counter').textContent = `Q${currentQ + 1} / ${questions.length}`;
+  document.getElementById('q-text').textContent = q.text;
+  document.getElementById('progress-bar').style.width = `${(currentQ / questions.length) * 100}%`;
+
+  const choicesEl = document.getElementById('choices');
+  choicesEl.innerHTML = '';
+  q.choices.forEach((c, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.innerHTML = `<span class="choice-scene">${c.scene}</span><span class="choice-label">${c.label}</span><span class="choice-scene-art">${SCENE_SVG[c.scene] || ''}</span>`;
+    btn.onclick = () => selectAnswer(i, btn, c);
+    choicesEl.appendChild(btn);
+  });
+}
+
+function selectAnswer(index, btnEl, choice) {
+  // Detect phase from Q1
+  if (currentQ === 0 && choice.phase) {
+    detectedPhase = choice.phase;
+  }
+
+  document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
+  btnEl.classList.add('selected');
+  answers.push(index);
+
+  setTimeout(() => {
+    currentQ++;
+    if (currentQ < questions.length) {
+      const el = document.getElementById('screen-question');
+      el.classList.add('fade-out');
+      setTimeout(() => {
+        el.classList.remove('fade-out');
+        renderQuestion();
+        el.classList.add('fade-in');
+        setTimeout(() => el.classList.remove('fade-in'), 800);
+      }, 450);
+    } else {
+      // Show domain question screen after all 5 questions
+      showScreen('screen-domain');
+    }
+  }, 400);
+}
+
+// ── Result Generation ───────────────────────────────────────────────
+async function generateResult() {
+  const summary = answers.map((ai, qi) => {
+    return `Q${qi+1}: ${questions[qi].choices[ai].scene}（${questions[qi].choices[ai].label}）`;
+  }).join('\n');
+
+  const domainLabel = { work: "仕事・働き方", relationship: "人間関係", self: "自分自身", love: "恋愛・パートナー" }[selectedDomain];
+
+  const prompt = `あなたはINFJ・内向型の人の気持ちに深く寄り添う、静かで詩的なカウンセラーです。
+
+以下は、ユーザーが選んだ5つの情景です：
+${summary}
+
+また、ユーザーが「今一番しんどい領域」として選んだのは「${domainLabel}」です。
+
+これらを踏まえ、以下の形式でJSONを返してください。
+
+{
+  "phase": "（フェーズの名前。詩的で印象的な2〜6文字）",
+  "phase_en": "（英語のサブタイトル。例：Quiet Transition）",
+  "message": "（そのフェーズにいるユーザーへのメッセージ。改行を含む3〜5文の温かく詩的な文章。「${domainLabel}」の文脈を自然に含む）",
+  "note_quote": "（あやさんのnoteの文体・世界観に合わせた、内向型の人に届く言葉。2〜3文。実際の引用ではなくオリジナル）"
+}
+
+JSONのみ返してください。前後に説明や\`\`\`は不要です。`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content.map(b => b.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+    showResult(result);
+  } catch (e) {
+    showResult({
+      phase: "霧の中の灯り",
+      phase_en: "Light Within the Fog",
+      message: "今、あなたは霧の中にいる。\nでもその霧は、あなたを守るためのものかもしれない。\nすべてが見えなくてもいい。\n一歩だけ、前に。",
+      note_quote: "静かであることは、弱さじゃない。\n内側でちゃんと、深く考えている証拠。",
+    });
+  }
+}
+
+function showResult(result) {
+  document.getElementById('result-phase').textContent = result.phase;
+  document.getElementById('result-phase-en').textContent = result.phase_en;
+  document.getElementById('result-message').textContent = result.message;
+  document.getElementById('result-quote').textContent = result.note_quote;
+
+  // Set note link based on phase × domain
+  const noteData = (NOTE_MAP[detectedPhase] || NOTE_MAP.fog)[selectedDomain] || NOTE_MAP.fog.self;
+  const linkEl = document.getElementById('result-note-link');
+  linkEl.href = noteData.url;
+  linkEl.textContent = `「${noteData.title}」を読む →`;
+
+  showScreen('screen-result');
+}
+</script>
+</body>
+</html>
